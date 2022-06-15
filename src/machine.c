@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 uint32_t* text;
+uint32_t tsize;
 
 static uint32_t swap_uint32(uint32_t num)
 {
@@ -45,7 +46,6 @@ int init_ijvm(char *binary_file)
   torigin = swap_uint32(torigin);
   printf("%x\n", torigin);
 
-  uint32_t tsize;
   fread(&tsize, sizeof(uint32_t), 1, fp);
   tsize = swap_uint32(tsize);
   printf("%x\n", tsize);
@@ -60,6 +60,7 @@ int init_ijvm(char *binary_file)
   text = tdata;
 
   fread(buffer, sizeof(char), 128, fp);
+  fclose(fp);
 
   return 1;
 }
@@ -71,7 +72,21 @@ void destroy_ijvm()
 
 void run()
 {
-  // Step while you can
+  for (int i = 0; i < tsize; i++)
+  {
+    switch (text[i]) {
+      case 268435456:
+        printf("BIPUSH\n");
+        break;
+      case 1610612736:
+        printf("IADD\n");
+        break;
+      case 4244635648:
+        printf("OUT\n");
+        break;
+    }
+  }
+
 }
 
 void set_input(FILE *fp)
@@ -86,7 +101,7 @@ void set_output(FILE *fp)
 
 int text_size(void){
 
-return 0;
+return tsize;
 }
 
 bool step(void){
