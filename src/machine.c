@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-uint32_t* text;
+uint8_t* text;
 uint32_t tsize;
 
 static uint32_t swap_uint32(uint32_t num)
@@ -50,16 +50,12 @@ int init_ijvm(char *binary_file)
   tsize = swap_uint32(tsize);
   printf("%x\n", tsize);
 
-  uint32_t* tdata = (uint32_t*) malloc(tsize*sizeof(uint32_t));
-  for(int i = 0; i < tsize; i++) 
-  {
-    fread(&tdata[i], 1, 1, fp);
-    tdata[i] = swap_uint32(tdata[i]);
-    printf("%x\n", tdata[i]);
-  }
+  uint8_t* tdata = (uint8_t*) malloc(tsize*sizeof(uint8_t));
+
+
   text = tdata;
 
-  fread(buffer, sizeof(char), 128, fp);
+  fread(tdata, sizeof(char), tsize, fp);
   fclose(fp);
 
   return 1;
@@ -67,7 +63,7 @@ int init_ijvm(char *binary_file)
 
 void destroy_ijvm()
 {
-  // Reset IJVM state
+  free(text);
 }
 
 void run()
@@ -75,13 +71,13 @@ void run()
   for (int i = 0; i < tsize; i++)
   {
     switch (text[i]) {
-      case 268435456:
+      case OP_BIPUSH:
         printf("BIPUSH\n");
         break;
-      case 1610612736:
+      case OP_IADD:
         printf("IADD\n");
         break;
-      case 4244635648:
+      case OP_OUT:
         printf("OUT\n");
         break;
     }
