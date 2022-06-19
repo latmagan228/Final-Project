@@ -2,12 +2,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <assert.h>
+
+#define STACK_SIZE 1024
 
 struct gvariables
 {
 uint8_t* text;
 uint32_t tsize;
 int counter;
+word_t stack[STACK_SIZE];
+int ssize;
+int sp;
 };
 
 struct gvariables gv;
@@ -61,40 +67,14 @@ int init_ijvm(char *binary_file)
 void destroy_ijvm()
 {
   free(gv.text);
+  gv.sp = 0;
   gv.tsize = 0;
   gv.counter = 0;
 }
 
 void run()
 {
-  while(step())
-  {
-  switch (gv.text[gv.counter]) {
-    case OP_BIPUSH:
-      gv.counter += 1;
-      printf("BIPUSH\n");
-      break;
-    case OP_IADD:
-      printf("IADD\n");
-      break;
-    case OP_OUT:
-      printf("OUT\n");
-      break;
-    case OP_NOP:
-      printf("NOP\n");
-      break;
-    case OP_LDC_W:
-      gv.counter += 2;
-      printf("LDC_W\n");
-      break;
-    case OP_DUP:
-      printf("DUP\n");
-      break;
-    case OP_HALT:
-      break;
-  }
-  gv.counter += 1;
-  }
+  while(step());
 }
 
 void set_input(FILE *fp)
@@ -112,15 +92,92 @@ int text_size(void){
 return gv.tsize;
 }
 
-bool step(void){
+word_t push(word_t n) {
+  assert(gv.sp < STACK_SIZE -1);
+  gv.stack[++gv.sp] = n;
+  return gv.stack[gv.sp];
+}
 
-  if (gv.text[gv.counter] == OP_HALT)
-  {
+word_t pop() {
+  assert(gv.sp >= 0);
+  return gv.stack[gv.sp--];
+}
+
+bool step(void){
+  byte_t a;
+  byte_t b;
+  switch (gv.text[gv.counter]) {
+    case OP_BIPUSH:
+      printf("BIPUSH\n");
+      push((int8_t)gv.text[gv.counter + 1]);
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      gv.counter += 1;
+      break;
+    case OP_IADD:
+      a = pop();
+      b = pop();
+      push(b + a);
+      printf("IADD\n");
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_ISUB:
+      a = pop();
+      b = pop();
+      push(b - a);
+      printf("ISUB\n");
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_IAND:
+      a = pop();
+      b = pop();
+      push(b & a);
+      printf("IAND\n");
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_IOR:
+      a = pop();
+      b = pop();
+      push(b | a);
+      printf("IOR\n");
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_POP:
+      pop();
+      printf(("POP\n"));
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_SWAP:
+      a = pop();
+      b = pop();
+      push(a);
+      push(b);
+      printf("ISWAP\n");
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_OUT:
+      printf("OUT\n");
+      break;
+    case OP_NOP:
+      printf("NOP\n");
+      break;
+    case OP_LDC_W:
+      gv.counter += 2;
+      printf("LDC_W\n");
+      break;
+    case OP_DUP:
+      printf("DUP\n");
+      break;
+    case OP_HALT:
+      return false;
+      break;
+  }
+  gv.counter += 1;
+  if (gv.counter == gv.tsize) {
     return false;
   }
-  else{ return true;}
-
+  return true;
 }
+
 
 byte_t *get_text(void){
 
@@ -136,5 +193,26 @@ byte_t get_instruction(void){
 
   return gv.text[gv.counter];
 }
+
+word_t tos(void){
+
+  return (int8_t)gv.stack[gv.sp];
+}
+
+word_t *get_stack(void){
+
+  return 0;
+}
+
+int stack_size(void){
+
+  return gv.sp;
+}
+
+
+
+
+
+
 
 
