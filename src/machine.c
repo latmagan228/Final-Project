@@ -106,16 +106,16 @@ word_t pop() {
   return gv.stack[gv.sp--];
 }
 
-int byte_to_int(){
+int16_t byte_to_int(){
   byte_t *bytes = &gv.text[gv.counter + 1];
-  int result = (bytes[0] & 0xFF << 8) + (bytes[1] & 0xFF);
+  int16_t result = (int16_t)((bytes[0] << 8) | (bytes[1]));
   return result;
 }
 
 bool step(void){
   byte_t a;
   byte_t b;
-  int c;
+  int16_t c;
   switch (gv.text[gv.counter]) {
     case OP_BIPUSH:
       printf("BIPUSH\n");
@@ -167,10 +167,47 @@ bool step(void){
     case OP_GOTO:
       printf(("GOTO\n"));
       c = byte_to_int();
-      printf("%d\n", gv.counter);
-      printf("%d\n", c);
       gv.counter += c - 1;
       printf("%d\n",  gv.counter);
+      break;
+    case OP_IFEQ:
+      if (pop() == 0) {
+        printf("IFEQ");
+        c = byte_to_int();
+        gv.counter += c - 1;
+        printf("%d\n",  gv.counter);
+        break;
+      }
+      else {
+        gv.counter += 2;
+        break;
+      }
+    case OP_IFLT:      
+      if (pop() < 0) {
+        printf("IFLT\n");
+        c = byte_to_int();
+        gv.counter += c - 1;
+        printf("%d\n",  gv.counter);
+        break;
+      }
+      else {
+        gv.counter += 2;
+        break;
+      }
+    case OP_ICMPEQ:      
+      if (pop() == pop()) {
+        printf("ICMPEQ\n");
+        c = byte_to_int();
+        gv.counter += c - 1;
+        printf("%d\n",  gv.counter);
+        break;
+      }
+      else {
+        gv.counter += 2;
+        break;
+      }
+    case OP_NOP:
+      printf("NOP\n");
       break;
     case OP_OUT:
       printf("OUT\n");
@@ -181,6 +218,8 @@ bool step(void){
       break;
     case OP_DUP:
       printf("DUP\n");
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      push((int8_t)gv.stack[gv.sp]);
       break;
     case OP_HALT:
       return false;
