@@ -17,6 +17,7 @@ int sp;
 FILE *fp;
 FILE *out;
 FILE *in;
+uint32_t* cvar;
 };
 
 struct gvariables gv;
@@ -49,6 +50,7 @@ int init_ijvm(char *binary_file)
     fread(&cpdata[i], sizeof(uint32_t), 1, gv.fp);
     cpdata[i] = swap_uint32(cpdata[i]);
   } 
+  gv.cvar = cpdata;
 
   uint32_t torigin;
   fread(&torigin, sizeof(uint32_t), 1, gv.fp);
@@ -104,6 +106,16 @@ word_t push(word_t n) {
 word_t pop() {
   assert(gv.sp >= 0);
   return gv.stack[gv.sp--];
+}
+
+word_t get_constant(int i) {
+
+  return gv.cvar[i];
+}
+
+word_t get_local_variable(int i) {
+
+  return 0;
 }
 
 int16_t byte_to_int(){
@@ -213,8 +225,11 @@ bool step(void){
       printf("OUT\n");
       break;
     case OP_LDC_W:
-      gv.counter += 2;
       printf("LDC_W\n");
+      c = byte_to_int();
+      push((int8_t)get_constant(c));
+      printf("%x\n", (int8_t)get_constant(c));
+      gv.counter += 2;
       break;
     case OP_DUP:
       printf("DUP\n");
