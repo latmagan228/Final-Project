@@ -12,8 +12,10 @@ uint8_t* text;
 uint32_t tsize;
 int counter;
 word_t stack[STACK_SIZE];
+word_t lvstack[STACK_SIZE];
 int ssize;
 int sp;
+int lvsp;
 FILE *fp;
 FILE *out;
 FILE *in;
@@ -70,6 +72,7 @@ void destroy_ijvm()
 {
   free(gv.text);
   gv.sp = 0;
+  gv.lvsp = 0;
   gv.tsize = 0;
   gv.counter = 0;
   fclose(gv.fp);
@@ -77,6 +80,8 @@ void destroy_ijvm()
 
 void run()
 {
+  gv.sp = -1;
+  gv.lvsp = 0;
   while(step());
 }
 
@@ -114,7 +119,7 @@ word_t get_constant(int i) {
 }
 
 word_t get_local_variable(int i) {
-
+   
   return 0;
 }
 
@@ -223,6 +228,7 @@ bool step(void){
       break;
     case OP_OUT:
       printf("OUT\n");
+      pop();
       break;
     case OP_LDC_W:
       printf("LDC_W\n");
@@ -235,6 +241,16 @@ bool step(void){
       printf("DUP\n");
       printf("%x\n", (int8_t)gv.stack[gv.sp]);
       push((int8_t)gv.stack[gv.sp]);
+      break;
+    case OP_ISTORE:
+      printf("ISTORE\n");
+      a = pop();
+      gv.lvstack[++gv.lvsp] = (int8_t)a;
+      gv.counter += 1;
+      break;
+    case OP_ILOAD:
+      printf("ILOAD\n");
+      gv.counter += 1;
       break;
     case OP_HALT:
       return false;
