@@ -53,7 +53,7 @@ void test_simple_load()
 
 void test_complex_load()
 {
-    int res = init_ijvm("files/task4/LoadTest2.ijvm");
+int res = init_ijvm("files/task4/LoadTest2.ijvm");
     assert(res != -1);
 
     step();
@@ -97,9 +97,9 @@ void test_iteration_load()
     set_output(output_file);
 
     run();
-
     rewind(output_file);
     fread(buf, 1, 127, output_file);
+
     assert(strncmp(buf, LOADTEST4_OUTPUT, strlen(LOADTEST4_OUTPUT) + 1) == 0);
 
     destroy_ijvm();

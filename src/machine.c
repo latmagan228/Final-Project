@@ -4,22 +4,21 @@
 #include <unistd.h>
 #include <assert.h>
 
-#define STACK_SIZE 1024
+#define STACK_SIZE 4096
 
 struct gvariables
 {
 uint8_t* text;
 uint32_t tsize;
 int counter;
-word_t stack[STACK_SIZE];
-word_t lvstack[STACK_SIZE];
+word_t *stack;
 int ssize;
 int sp;
 int lvsp;
 FILE *fp;
 FILE *out;
 FILE *in;
-uint32_t* cvar;
+word_t* cvar;
 };
 
 struct gvariables gv;
@@ -31,6 +30,8 @@ static uint32_t swap_uint32(uint32_t num)
 
 int init_ijvm(char *binary_file)
 {
+  gv.out = stdout;
+  gv.in = stdin;
   char *binary = binary_file;
   gv.fp = fopen(binary, "rb");
 
@@ -46,7 +47,7 @@ int init_ijvm(char *binary_file)
   fread(&cpsize, sizeof(uint32_t), 1, gv.fp);
   cpsize = swap_uint32(cpsize);
 
-  uint32_t* cpdata = (uint32_t*) malloc(cpsize/4*sizeof(uint32_t));
+  word_t* cpdata = (word_t*) malloc(cpsize/4*sizeof(word_t));
   for(int i = 0; i < cpsize/4; i++) 
   {
     fread(&cpdata[i], sizeof(uint32_t), 1, gv.fp);
@@ -65,12 +66,17 @@ int init_ijvm(char *binary_file)
   fread(tdata, sizeof(char), gv.tsize, gv.fp);
   gv.text = tdata;
 
+  gv.stack = (word_t*)malloc(STACK_SIZE);
+  gv.sp = 20;
+  gv.lvsp = 0;
+
   return 1;
 }
 
 void destroy_ijvm()
 {
   free(gv.text);
+  free(gv.stack);
   gv.sp = 0;
   gv.lvsp = 0;
   gv.tsize = 0;
@@ -80,21 +86,20 @@ void destroy_ijvm()
 
 void run()
 {
-  gv.sp = -1;
-  gv.lvsp = 0;
+  
   while(step());
 }
 
 void set_input(FILE *fp)
 {
   gv.in = fp;
-  gv.in = stdin;
+  //gv.in = stdin;
 } 
 
 void set_output(FILE *fp)
 {
   gv.out = fp;
-  gv.out = stdout;
+  //gv.out = stdout;
 }
 
 int text_size(void){
@@ -120,7 +125,7 @@ word_t get_constant(int i) {
 
 word_t get_local_variable(int i) {
    
-  return 0;
+  return gv.stack[gv.lvsp + i];
 }
 
 int16_t byte_to_int(){
@@ -133,6 +138,7 @@ bool step(void){
   byte_t a;
   byte_t b;
   int16_t c;
+  int d;
   switch (gv.text[gv.counter]) {
     case OP_BIPUSH:
       printf("BIPUSH\n");
@@ -228,7 +234,11 @@ bool step(void){
       break;
     case OP_OUT:
       printf("OUT\n");
-      pop();
+      putc(pop(), gv.out);
+      break;
+    case OP_IN:
+      printf("OUT\n");
+      push(getc(gv.in));
       break;
     case OP_LDC_W:
       printf("LDC_W\n");
@@ -245,12 +255,31 @@ bool step(void){
     case OP_ISTORE:
       printf("ISTORE\n");
       a = pop();
-      gv.lvstack[++gv.lvsp] = (int8_t)a;
+      d = (int8_t)gv.text[gv.counter + 1];
+      gv.stack[gv.lvsp + d] = a;
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
       gv.counter += 1;
       break;
     case OP_ILOAD:
       printf("ILOAD\n");
+      d = (int8_t)gv.text[gv.counter + 1];
+      a = get_local_variable(d);
+      push(a);
+      printf("%x\n", (int8_t)gv.stack[gv.sp]);
       gv.counter += 1;
+      break;
+    case OP_IINC:
+      printf("IINC\n");
+      d = (int8_t)gv.text[gv.counter + 1];
+      b = (int8_t)gv.text[gv.counter + 2];
+      a = get_local_variable(d);
+      gv.stack[gv.lvsp + d] = (int8_t)(a + b);
+      gv.counter += 2;
+      printf("%x\n", get_local_variable(d));
+      break;
+    case OP_WIDE:
+      printf("WIDE\n");
+      step();
       break;
     case OP_HALT:
       return false;
@@ -260,6 +289,10 @@ bool step(void){
   if (gv.counter == gv.tsize) {
     return false;
   }
+  a = 0;
+  b = 0;
+  c = 0;
+  d = 0;
   return true;
 }
 
