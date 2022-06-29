@@ -11,6 +11,7 @@ struct gvariables
 uint8_t* text;
 uint32_t tsize;
 int counter;
+int lvcounter;
 word_t *stack;
 int ssize;
 int sp;
@@ -19,6 +20,10 @@ FILE *fp;
 FILE *out;
 FILE *in;
 word_t* cvar;
+int nfunctions;
+int currentcounter[50];
+int currentsp;
+int functioncounter;
 };
 
 struct gvariables gv;
@@ -67,7 +72,7 @@ int init_ijvm(char *binary_file)
   gv.text = tdata;
 
   gv.stack = (word_t*)malloc(STACK_SIZE);
-  gv.sp = 20;
+  gv.sp = 256;
   gv.lvsp = 0;
 
   return 1;
@@ -82,6 +87,9 @@ void destroy_ijvm()
   gv.tsize = 0;
   gv.counter = 0;
   fclose(gv.fp);
+  gv.lvsp = 0;
+  gv.lvcounter = 0;
+  gv.functioncounter = 0;
 }
 
 void run()
@@ -93,13 +101,11 @@ void run()
 void set_input(FILE *fp)
 {
   gv.in = fp;
-  //gv.in = stdin;
 } 
 
 void set_output(FILE *fp)
 {
   gv.out = fp;
-  //gv.out = stdout;
 }
 
 int text_size(void){
@@ -128,7 +134,7 @@ word_t get_local_variable(int i) {
   return gv.stack[gv.lvsp + i];
 }
 
-int16_t byte_to_int(){
+int16_t short_to_int(){
   byte_t *bytes = &gv.text[gv.counter + 1];
   int16_t result = (int16_t)((bytes[0] << 8) | (bytes[1]));
   return result;
@@ -138,6 +144,8 @@ bool step(void){
   byte_t a;
   byte_t b;
   int16_t c;
+  int16_t nlv;
+  int16_t narg;
   int d;
   switch (gv.text[gv.counter]) {
     case OP_BIPUSH:
@@ -189,14 +197,14 @@ bool step(void){
       break;
     case OP_GOTO:
       printf(("GOTO\n"));
-      c = byte_to_int();
+      c = short_to_int();
       gv.counter += c - 1;
       printf("%d\n",  gv.counter);
       break;
     case OP_IFEQ:
       if (pop() == 0) {
         printf("IFEQ");
-        c = byte_to_int();
+        c = short_to_int();
         gv.counter += c - 1;
         printf("%d\n",  gv.counter);
         break;
@@ -208,7 +216,7 @@ bool step(void){
     case OP_IFLT:      
       if (pop() < 0) {
         printf("IFLT\n");
-        c = byte_to_int();
+        c = short_to_int();
         gv.counter += c - 1;
         printf("%d\n",  gv.counter);
         break;
@@ -220,7 +228,7 @@ bool step(void){
     case OP_ICMPEQ:      
       if (pop() == pop()) {
         printf("ICMPEQ\n");
-        c = byte_to_int();
+        c = short_to_int();
         gv.counter += c - 1;
         printf("%d\n",  gv.counter);
         break;
@@ -237,12 +245,12 @@ bool step(void){
       putc(pop(), gv.out);
       break;
     case OP_IN:
-      printf("OUT\n");
+      printf("IN\n");
       push(getc(gv.in));
       break;
     case OP_LDC_W:
       printf("LDC_W\n");
-      c = byte_to_int();
+      c = short_to_int();
       push((int8_t)get_constant(c));
       printf("%x\n", (int8_t)get_constant(c));
       gv.counter += 2;
@@ -258,6 +266,7 @@ bool step(void){
       d = (int8_t)gv.text[gv.counter + 1];
       gv.stack[gv.lvsp + d] = a;
       printf("%x\n", (int8_t)gv.stack[gv.sp]);
+      gv.lvcounter += 1;
       gv.counter += 1;
       break;
     case OP_ILOAD:
@@ -277,9 +286,52 @@ bool step(void){
       gv.counter += 2;
       printf("%x\n", get_local_variable(d));
       break;
+    case OP_INVOKEVIRTUAL:
+      printf("INVOKEVIRTUAL\n");
+      c = short_to_int();
+      gv.nfunctions += 1;
+      gv.currentcounter[gv.nfunctions] = gv.counter + 2;
+      gv.counter = get_constant(c);
+      gv.counter -= 1;
+      narg = short_to_int();
+      gv.functioncounter = narg;
+      printf("%d\n", narg);
+      gv.counter += 2;
+      nlv = short_to_int();
+      printf("%d\n", nlv);
+      gv.counter += 2;
+      printf("%d\n", gv.lvsp);
+      gv.lvsp += gv.functioncounter;
+      if(gv.lvsp == gv.functioncounter) {
+        gv.lvsp = gv.lvcounter;
+      }
+      else {
+        gv.lvsp += 1;
+      }
+      for(int i = 0; i < narg; i++) {
+          a= pop();
+          gv.stack[narg - i - 1 + gv.lvsp] = a;
+          printf("%d\n", narg - i - 1 + gv.lvsp);
+      }
+      printf("%d\n", gv.lvsp);
+      break;
+    case OP_IRETURN:
+      printf("IRETURN\n");
+      gv.counter = gv.currentcounter[gv.nfunctions--];
+      gv.lvsp -= gv.functioncounter + 1;
+      if (gv.lvsp + gv.functioncounter + 1 == gv.lvcounter){
+        gv.lvsp = 0;
+      }
+      printf("%d\n", gv.lvsp);
+      printf("%d\n", gv.counter);
+      break;
     case OP_WIDE:
       printf("WIDE\n");
       step();
+      break;
+    case OP_ERR:
+      printf("there has been an error");
+      return false;
       break;
     case OP_HALT:
       return false;
