@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-#define STACK_SIZE 4096
+#define STACK_SIZE 70000
 
 struct gvariables
 {
@@ -98,14 +98,14 @@ void run()
   while(step());
 }
 
-void set_input(FILE *fp)
+void set_input(FILE *file)
 {
-  gv.in = fp;
+  gv.in = file;
 } 
 
-void set_output(FILE *fp)
+void set_output(FILE *file)
 {
-  gv.out = fp;
+  gv.out = file;
 }
 
 int text_size(void){
@@ -246,7 +246,14 @@ bool step(void){
       break;
     case OP_IN:
       printf("IN\n");
-      push(getc(gv.in));
+      int getin;
+      getin = fgetc(gv.in);
+      if(getin == EOF){
+        push(0);
+      }
+      else {
+      push(getin);
+      }
       break;
     case OP_LDC_W:
       printf("LDC_W\n");
@@ -327,6 +334,7 @@ bool step(void){
       break;
     case OP_WIDE:
       printf("WIDE\n");
+
       step();
       break;
     case OP_ERR:

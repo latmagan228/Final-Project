@@ -6,7 +6,7 @@
 
 void test_stack_100()
 {
-    int res = init_ijvm("files/advanced/teststack.ijvm");
+    int res = init_ijvm("files/advanced/teststack.ijvm"); 
     assert(res != -1);
 
     step();
