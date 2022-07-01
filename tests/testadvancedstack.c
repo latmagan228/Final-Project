@@ -12,6 +12,7 @@ void test_stack_100()
     step();
     steps(2 * 100);
     assert(tos() == 0x2);
+    printf("hello");
 
     destroy_ijvm();
 }

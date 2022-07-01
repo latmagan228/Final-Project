@@ -24,6 +24,7 @@ int nfunctions;
 int currentcounter[50];
 int currentsp;
 int functioncounter;
+bool wide;
 };
 
 struct gvariables gv;
@@ -74,6 +75,7 @@ int init_ijvm(char *binary_file)
   gv.stack = (word_t*)malloc(STACK_SIZE);
   gv.sp = 256;
   gv.lvsp = 0;
+  gv.wide = false;
 
   return 1;
 }
@@ -94,8 +96,22 @@ void destroy_ijvm()
 
 void run()
 {
-  
   while(step());
+}
+
+bool finished(void) {
+  if (gv.text[gv.counter] == OP_ERR){
+    return false;
+  }
+  else if (gv.text[gv.counter] == OP_HALT){
+    return false;
+  }
+  else if (gv.counter == gv.tsize) {
+    return false;
+  }
+  else {
+  return true;
+  }
 }
 
 void set_input(FILE *file)
@@ -270,28 +286,53 @@ bool step(void){
     case OP_ISTORE:
       printf("ISTORE\n");
       a = pop();
-      d = (int8_t)gv.text[gv.counter + 1];
+      if (gv.wide) {
+        byte_t *bytes = &gv.text[gv.counter + 1];
+        uint16_t result = (uint16_t)((bytes[0] << 8) | (bytes[1]));
+        d =  result;
+        printf("res %d\n", result);
+      }
+      else {
+        d = (int8_t)gv.text[gv.counter + 1];
+      }
       gv.stack[gv.lvsp + d] = a;
       printf("%x\n", (int8_t)gv.stack[gv.sp]);
       gv.lvcounter += 1;
       gv.counter += 1;
+      gv.wide = false;
       break;
     case OP_ILOAD:
       printf("ILOAD\n");
-      d = (int8_t)gv.text[gv.counter + 1];
+      if (gv.wide) {
+        byte_t *bytes = &gv.text[gv.counter + 1];
+        uint16_t result = (uint16_t)((bytes[0] << 8) | (bytes[1]));
+        d =  result;
+      }
+      else {
+        d = (int8_t)gv.text[gv.counter + 1];
+      }
       a = get_local_variable(d);
       push(a);
       printf("%x\n", (int8_t)gv.stack[gv.sp]);
       gv.counter += 1;
+      gv.wide = false;
       break;
     case OP_IINC:
       printf("IINC\n");
-      d = (int8_t)gv.text[gv.counter + 1];
+      if (gv.wide) {
+        byte_t *bytes = &gv.text[gv.counter + 1];
+        uint16_t result = (uint16_t)((bytes[0] << 8) | (bytes[1]));
+        d =  result;
+      }
+      else {
+        d = (int8_t)gv.text[gv.counter + 1];
+      }
       b = (int8_t)gv.text[gv.counter + 2];
       a = get_local_variable(d);
       gv.stack[gv.lvsp + d] = (int8_t)(a + b);
       gv.counter += 2;
       printf("%x\n", get_local_variable(d));
+      gv.wide = false;
       break;
     case OP_INVOKEVIRTUAL:
       printf("INVOKEVIRTUAL\n");
@@ -334,7 +375,8 @@ bool step(void){
       break;
     case OP_WIDE:
       printf("WIDE\n");
-
+      gv.wide = true;
+      gv.counter += 1;
       step();
       break;
     case OP_ERR:
@@ -342,6 +384,7 @@ bool step(void){
       return false;
       break;
     case OP_HALT:
+      printf("HALT");
       return false;
       break;
   }
